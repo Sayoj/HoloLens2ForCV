@@ -382,15 +382,27 @@ void RMCameraReader::SaveAccel(IResearchModeSensorFrame* pSensorFrame, IResearch
             sqrt(sample.x * sample.x + sample.y * sample.y + sample.z * sample.z),
             (lastSocTickDelta * 1000) / timeStamp.HostTicksPerSecond
         );
-        wchar_t outputPath[MAX_PATH];
-        swprintf_s(outputPath, L"%llu.pgm", m_converter.RelativeTicksToAbsoluteTicks(HundredsOfNanoseconds(checkAndConvertUnsigned(m_prevTimestamp))).count());
-        
-        std::vector<BYTE> IMUData;
-        size_t outBufferCount = 0;
-        IMUData.insert(IMUData.end(), printString, printString);
-        
 
-        m_tarball->AddFile(outputPath, &IMUData[0], IMUData.size());
+        wchar_t outputPath[MAX_PATH] = {};
+        swprintf_s(outputPath, L"%s\\%s_.txt", m_storageFolder.Path().data(), m_pRMSensor->GetFriendlyName());
+        
+        std::ofstream file(outputPath);
+      
+            file << printString << "," << std::endl;
+
+            file.close();
+            
+            size_t outAbBufferCount = 0;
+            wchar_t outputAbPath[MAX_PATH];
+            HundredsOfNanoseconds timestamp = m_converter.RelativeTicksToAbsoluteTicks(HundredsOfNanoseconds((long long)m_prevTimestamp));
+
+            std::string printStringAsStdStr = printString;
+            swprintf_s(outputAbPath, L"%llu_ab.txt", timestamp.count());
+            std::vector<BYTE> IMUData;
+            IMUData.reserve(printStringAsStdStr.size() + outAbBufferCount * sizeof(UINT16));
+            IMUData.insert(IMUData.end(), printStringAsStdStr.c_str(), printStringAsStdStr.c_str() + printStringAsStdStr.size());
+           
+            m_tarball->AddFile(outputAbPath, &IMUData[0], IMUData.size());
 
         return;
 }
