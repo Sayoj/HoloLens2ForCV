@@ -392,8 +392,6 @@ void RMCameraReader::SaveAccel(IResearchModeSensorFrame* pSensorFrame, IResearch
         
         m_tarball->AddFile(outputPath, &printCharString, printCharString.size());
 
-        auto path = m_storageFoldera.Path().data();
-
         return;
     }
 }
