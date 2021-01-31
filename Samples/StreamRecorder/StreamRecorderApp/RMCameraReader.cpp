@@ -370,14 +370,12 @@ void RMCameraReader::SaveAccel(IResearchModeSensorFrame* pSensorFrame, IResearch
     }
     glastSocTick = timeStamp.HostTicks;
 
-    if (SUCCEEDED(hr))
-    {
         hr = pSensorAccelFrame->GetCalibratedAccelaration(&sample);
         if (FAILED(hr))
         {
             return;
         }
-        sprintf(printString, "####Accel: % 3.4f % 3.4f % 3.4f %f %I64d %I64d\n",
+        sprintf_s(printString, "####Accel: % 3.4f % 3.4f % 3.4f %f %I64d %I64d\n",
             sample.x,
             sample.y,
             sample.z,
@@ -386,15 +384,17 @@ void RMCameraReader::SaveAccel(IResearchModeSensorFrame* pSensorFrame, IResearch
         );
         wchar_t outputPath[MAX_PATH];
         swprintf_s(outputPath, L"%llu.pgm", m_converter.RelativeTicksToAbsoluteTicks(HundredsOfNanoseconds(checkAndConvertUnsigned(m_prevTimestamp))).count());
-
-        size_t outBufferCount = 0;
-        uint8_t printCharString = (uint8_t)atoi(printString);
         
-        m_tarball->AddFile(outputPath, &printCharString, printCharString.size());
+        std::vector<BYTE> IMUData;
+        size_t outBufferCount = 0;
+        IMUData.insert(IMUData.end(), printString, printString);
+        
+
+        m_tarball->AddFile(outputPath, &IMUData[0], IMUData.size());
 
         return;
-    }
 }
+
 
 void RMCameraReader::SaveVLC(IResearchModeSensorFrame* pSensorFrame, IResearchModeSensorVLCFrame* pVLCFrame)
 {        
