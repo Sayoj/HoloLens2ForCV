@@ -77,6 +77,7 @@ protected:
 	void SaveFrame(IResearchModeSensorFrame* pSensorFrame);
 	void SaveVLC(IResearchModeSensorFrame* pSensorFrame, IResearchModeSensorVLCFrame* pVLCFrame);
 	void SaveDepth(IResearchModeSensorFrame* pSensorFrame, IResearchModeSensorDepthFrame* pDepthFrame);
+	void SaveAccel(IResearchModeSensorFrame* pSensorFrame, IResearchModeAccelFrame* pSensorAccelFrame);
 
 	void DumpCalibration();
 

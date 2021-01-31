@@ -105,45 +105,6 @@ void RMCameraReader::CameraUpdateThread(RMCameraReader* pCameraReader, HANDLE ca
     }
 }
 
-void SaveAccel(IResearchModeSensorFrame* pSensorFrame, IResearchModeAccelFrame* pSensorAccelFrame)
-{
-    DirectX::XMFLOAT3 sample;
-    char printString[1000];
-    HRESULT hr = S_OK;
-
-    ResearchModeSensorTimestamp timeStamp;
-    UINT64 lastSocTickDelta = 0;
-    UINT64 glastSocTick = 1;
-
-    pSensorFrame->GetTimeStamp(&timeStamp);
-
-    if (glastSocTick != 0)
-    {
-        lastSocTickDelta = timeStamp.HostTicks - glastSocTick;
-    }
-    glastSocTick = timeStamp.HostTicks;
-
-    hr = pSensorFrame->QueryInterface(IID_PPV_ARGS(&pSensorAccelFrame));
-    if (SUCCEEDED(hr))
-    {
-        hr = pSensorAccelFrame->GetCalibratedAccelaration(&sample);
-        if (FAILED(hr))
-        {
-            return;
-        }
-        sprintf(printString, "####Accel: % 3.4f % 3.4f % 3.4f %f %I64d %I64d\n",
-            sample.x,
-            sample.y,
-            sample.z,
-            sqrt(sample.x * sample.x + sample.y * sample.y + sample.z * sample.z),
-            (lastSocTickDelta * 1000) / timeStamp.HostTicksPerSecond
-        );
-        //OutputDebugStringA(printString);
-        pSensorAccelFrame->Release();
-        return;
-    }
-}
-
 void RMCameraReader::CameraWriteThread(RMCameraReader* pReader)
 {
     while (!pReader->m_fExit)
@@ -389,6 +350,52 @@ void RMCameraReader::SaveDepth(IResearchModeSensorFrame* pSensorFrame, IResearch
 
     m_tarball->AddFile(outputAbPath, &abPgmData[0], abPgmData.size());
     m_tarball->AddFile(outputDepthPath, &depthPgmData[0], depthPgmData.size());
+}
+
+void RMCameraReader::SaveAccel(IResearchModeSensorFrame* pSensorFrame, IResearchModeAccelFrame* pSensorAccelFrame)
+{
+    DirectX::XMFLOAT3 sample;
+    char printString[1000];
+    HRESULT hr = S_OK;
+
+    ResearchModeSensorTimestamp timeStamp;
+    UINT64 lastSocTickDelta = 0;
+    UINT64 glastSocTick = 1;
+
+    pSensorFrame->GetTimeStamp(&timeStamp);
+
+    if (glastSocTick != 0)
+    {
+        lastSocTickDelta = timeStamp.HostTicks - glastSocTick;
+    }
+    glastSocTick = timeStamp.HostTicks;
+
+    if (SUCCEEDED(hr))
+    {
+        hr = pSensorAccelFrame->GetCalibratedAccelaration(&sample);
+        if (FAILED(hr))
+        {
+            return;
+        }
+        sprintf(printString, "####Accel: % 3.4f % 3.4f % 3.4f %f %I64d %I64d\n",
+            sample.x,
+            sample.y,
+            sample.z,
+            sqrt(sample.x * sample.x + sample.y * sample.y + sample.z * sample.z),
+            (lastSocTickDelta * 1000) / timeStamp.HostTicksPerSecond
+        );
+        wchar_t outputPath[MAX_PATH];
+        swprintf_s(outputPath, L"%llu.pgm", m_converter.RelativeTicksToAbsoluteTicks(HundredsOfNanoseconds(checkAndConvertUnsigned(m_prevTimestamp))).count());
+
+        size_t outBufferCount = 0;
+        uint8_t printCharString = (uint8_t)atoi(printString);
+        
+        m_tarball->AddFile(outputPath, &printCharString, printCharString.size());
+
+        auto path = m_storageFoldera.Path().data();
+
+        return;
+    }
 }
 
 void RMCameraReader::SaveVLC(IResearchModeSensorFrame* pSensorFrame, IResearchModeSensorVLCFrame* pVLCFrame)
