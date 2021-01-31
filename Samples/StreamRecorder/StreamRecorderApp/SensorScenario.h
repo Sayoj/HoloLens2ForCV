@@ -26,6 +26,7 @@ public:
 	void StartRecording(const winrt::Windows::Storage::StorageFolder& folder, const winrt::Windows::Perception::Spatial::SpatialCoordinateSystem& worldCoordSystem);
 	void StopRecording();
 	static void CamAccessOnComplete(ResearchModeSensorConsent consent);
+	static void ImuAccessOnComplete(ResearchModeSensorConsent consent);
 
 private:
 	void GetRigNodeId(GUID& outGuid) const;
@@ -43,5 +44,9 @@ private:
 	IResearchModeSensor* m_pLLCameraSensor = nullptr;
 	IResearchModeSensor* m_pRRCameraSensor = nullptr;
 	IResearchModeSensor* m_pLTSensor = nullptr;
-	IResearchModeSensor* m_pAHATSensor = nullptr;		
+	IResearchModeSensor* m_pAHATSensor = nullptr;	
+	IResearchModeSensor* m_pAccelSensor = nullptr;
+	IResearchModeSensor* m_pGyroSensor = nullptr;
+	IResearchModeSensor* m_pMagSensor = nullptr;
+
 };

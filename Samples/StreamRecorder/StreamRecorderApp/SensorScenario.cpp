@@ -18,6 +18,8 @@ HMODULE LoadLibraryA(
 
 static ResearchModeSensorConsent camAccessCheck;
 static HANDLE camConsentGiven;
+static ResearchModeSensorConsent imuAccessCheck;
+static HANDLE imuConsentGiven;
 
 SensorScenario::SensorScenario(const std::vector<ResearchModeSensorType>& kEnabledSensorTypes):
 	m_kEnabledSensorTypes(kEnabledSensorTypes)
@@ -50,6 +52,19 @@ SensorScenario::~SensorScenario()
 	{
 		m_pAHATSensor->Release();
 	}
+	if (m_pAccelSensor)
+	{
+		m_pAccelSensor->Release();
+	}
+	if (m_pGyroSensor)
+	{
+		m_pGyroSensor->Release();
+	}
+	if (m_pMagSensor)
+	{
+		m_pMagSensor->Release();
+	}
+
 
 	if (m_pSensorDevice)
 	{
@@ -75,6 +90,7 @@ void SensorScenario::InitializeSensors()
 {
 	size_t sensorCount = 0;
 	camConsentGiven = CreateEvent(nullptr, true, false, nullptr);
+	imuConsentGiven = CreateEvent(nullptr, true, false, nullptr);
 
 	// Load Research Mode library
 	HMODULE hrResearchMode = LoadLibraryA("ResearchModeAPI");
@@ -91,6 +107,7 @@ void SensorScenario::InitializeSensors()
 	// Manage Sensor Consent
 	winrt::check_hresult(m_pSensorDevice->QueryInterface(IID_PPV_ARGS(&m_pSensorDeviceConsent)));
 	winrt::check_hresult(m_pSensorDeviceConsent->RequestCamAccessAsync(SensorScenario::CamAccessOnComplete));	
+	winrt::check_hresult(m_pSensorDeviceConsent->RequestIMUAccessAsync(SensorScenario::ImuAccessOnComplete));	
 
 	m_pSensorDevice->DisableEyeSelection();
 
@@ -159,6 +176,30 @@ void SensorScenario::InitializeSensors()
 			}
 			winrt::check_hresult(m_pSensorDevice->GetSensor(sensorDescriptor.sensorType, &m_pAHATSensor));
 		}
+		if (sensorDescriptor.sensorType == IMU_ACCEL)
+		{
+			if (std::find(m_kEnabledSensorTypes.begin(), m_kEnabledSensorTypes.end(), IMU_ACCEL) == m_kEnabledSensorTypes.end())
+			{
+				continue;
+			}
+			winrt::check_hresult(m_pSensorDevice->GetSensor(sensorDescriptor.sensorType, &m_pAccelSensor));
+		}
+		if (sensorDescriptor.sensorType == IMU_GYRO)
+		{
+			if (std::find(m_kEnabledSensorTypes.begin(), m_kEnabledSensorTypes.end(), IMU_GYRO) == m_kEnabledSensorTypes.end())
+			{
+				continue;
+			}
+			winrt::check_hresult(m_pSensorDevice->GetSensor(sensorDescriptor.sensorType, &m_pGyroSensor));
+		}
+		if (sensorDescriptor.sensorType == IMU_MAG)
+		{
+			if (std::find(m_kEnabledSensorTypes.begin(), m_kEnabledSensorTypes.end(), IMU_MAG) == m_kEnabledSensorTypes.end())
+			{
+				continue;
+			}
+			winrt::check_hresult(m_pSensorDevice->GetSensor(sensorDescriptor.sensorType, &m_pMagSensor));
+		}
 	}	
 }
 
@@ -166,6 +207,12 @@ void SensorScenario::CamAccessOnComplete(ResearchModeSensorConsent consent)
 {
 	camAccessCheck = consent;
 	SetEvent(camConsentGiven);
+}
+
+void SensorScenario::ImuAccessOnComplete(ResearchModeSensorConsent consent)
+{
+	imuAccessCheck = consent;
+	SetEvent(imuConsentGiven);
 }
 
 void SensorScenario::InitializeCameraReaders()
@@ -209,7 +256,24 @@ void SensorScenario::InitializeCameraReaders()
 	{
 		auto cameraReader = std::make_shared<RMCameraReader>(m_pAHATSensor, camConsentGiven, &camAccessCheck, guid);
 		m_cameraReaders.push_back(cameraReader);
-	}	
+	}
+	if (m_pAccelSensor)
+	{
+		auto cameraReader = std::make_shared<RMCameraReader>(m_pAccelSensor, imuConsentGiven, &imuAccessCheck, guid);
+		m_cameraReaders.push_back(cameraReader);
+	}
+
+	if (m_pGyroSensor)
+	{
+		auto cameraReader = std::make_shared<RMCameraReader>(m_pGyroSensor, imuConsentGiven, &imuAccessCheck, guid);
+		m_cameraReaders.push_back(cameraReader);
+	}
+
+	if (m_pMagSensor)
+	{
+		auto cameraReader = std::make_shared<RMCameraReader>(m_pMagSensor, imuConsentGiven, &imuAccessCheck, guid);
+		m_cameraReaders.push_back(cameraReader);
+	}
 }
 
 void SensorScenario::StartRecording(const winrt::Windows::Storage::StorageFolder& folder,
