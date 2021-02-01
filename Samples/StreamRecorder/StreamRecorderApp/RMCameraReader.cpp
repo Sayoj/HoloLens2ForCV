@@ -11,6 +11,7 @@
 
 #include "RMCameraReader.h"
 #include <sstream>
+#include "researchmode/ResearchModeApi.h"
 
 using namespace winrt::Windows::Perception;
 using namespace winrt::Windows::Perception::Spatial;
@@ -30,6 +31,7 @@ namespace Depth
 void RMCameraReader::CameraUpdateThread(RMCameraReader* pCameraReader, HANDLE camConsentGiven, ResearchModeSensorConsent* camAccessConsent)
 {
 	HRESULT hr = S_OK;
+    
 
     DWORD waitResult = WaitForSingleObject(camConsentGiven, INFINITE);
 
@@ -79,7 +81,8 @@ void RMCameraReader::CameraUpdateThread(RMCameraReader* pCameraReader, HANDLE ca
 
         while (!pCameraReader->m_fExit && pCameraReader->m_pRMSensor)
         {
-            HRESULT hr = S_OK;
+
+            HRESULT hr = S_OK; 
             IResearchModeSensorFrame* pSensorFrame = nullptr;
 
             hr = pCameraReader->m_pRMSensor->GetNextBuffer(&pSensorFrame);
@@ -349,6 +352,53 @@ void RMCameraReader::SaveDepth(IResearchModeSensorFrame* pSensorFrame, IResearch
     m_tarball->AddFile(outputDepthPath, &depthPgmData[0], depthPgmData.size());
 }
 
+void RMCameraReader::SaveAccel(IResearchModeSensorFrame* pSensorFrame, IResearchModeAccelFrame* pSensorAccelFrame)
+{
+    DirectX::XMFLOAT3 sample;
+    char printString[1000];
+    HRESULT hr = S_OK;
+
+    ResearchModeSensorTimestamp timeStamp;
+    UINT64 lastSocTickDelta = 0;
+    UINT64 glastSocTick = 1;
+
+    pSensorFrame->GetTimeStamp(&timeStamp);
+
+    if (glastSocTick != 0)
+    {
+        lastSocTickDelta = timeStamp.HostTicks - glastSocTick;
+    }
+    glastSocTick = timeStamp.HostTicks;
+
+    hr = pSensorAccelFrame->GetCalibratedAccelaration(&sample);
+    if (FAILED(hr))
+    {
+        return;
+    }
+    sprintf_s(printString, "####Accel: % 3.4f % 3.4f % 3.4f %f %I64d %I64d\n",
+        sample.x,
+        sample.y,
+        sample.z,
+        sqrt(sample.x * sample.x + sample.y * sample.y + sample.z * sample.z),
+        (lastSocTickDelta * 1000) / timeStamp.HostTicksPerSecond
+        );
+
+    size_t outIMUBufferCount = 0;
+    wchar_t outputIMUPath[MAX_PATH];
+    HundredsOfNanoseconds timestamp = m_converter.RelativeTicksToAbsoluteTicks(HundredsOfNanoseconds((long long)m_prevTimestamp));
+
+    std::string printStringAsStdStr = printString;
+    swprintf_s(outputIMUPath, L"%llu_imu.txt", timestamp.count());
+    std::vector<BYTE> IMUData;
+    IMUData.reserve(printStringAsStdStr.size() + outIMUBufferCount * sizeof(UINT16));
+    IMUData.insert(IMUData.end(), printStringAsStdStr.c_str(), printStringAsStdStr.c_str() + printStringAsStdStr.size());
+           
+    m_tarball->AddFile(outputIMUPath, &IMUData[0], IMUData.size());
+
+    return;
+}
+
+
 void RMCameraReader::SaveVLC(IResearchModeSensorFrame* pSensorFrame, IResearchModeSensorVLCFrame* pVLCFrame)
 {        
     wchar_t outputPath[MAX_PATH];
@@ -383,6 +433,7 @@ void RMCameraReader::SaveFrame(IResearchModeSensorFrame* pSensorFrame)
 
 	IResearchModeSensorVLCFrame* pVLCFrame = nullptr;
 	IResearchModeSensorDepthFrame* pDepthFrame = nullptr;
+    IResearchModeAccelFrame* pSensorAccelFrame = nullptr;
 
     HRESULT hr = pSensorFrame->QueryInterface(IID_PPV_ARGS(&pVLCFrame));
 
@@ -390,6 +441,11 @@ void RMCameraReader::SaveFrame(IResearchModeSensorFrame* pSensorFrame)
 	{
 		hr = pSensorFrame->QueryInterface(IID_PPV_ARGS(&pDepthFrame));
 	}
+
+    if (FAILED(hr))
+    {
+        hr = pSensorFrame->QueryInterface(IID_PPV_ARGS(&pSensorAccelFrame));
+    }
 
 	if (pVLCFrame)
 	{
@@ -401,7 +457,13 @@ void RMCameraReader::SaveFrame(IResearchModeSensorFrame* pSensorFrame)
 	{		
 		SaveDepth(pSensorFrame, pDepthFrame);
         pDepthFrame->Release();
-	}    
+	}  
+
+    if (pSensorAccelFrame)
+    {
+        SaveAccel(pSensorFrame, pSensorAccelFrame);
+        pSensorAccelFrame->Release();
+    }
 }
 
 bool RMCameraReader::AddFrameLocation()
